@@ -1,0 +1,60 @@
+name: Build and Publish Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      service_name: { required: true, type: string }
+      docker_tags: { required: true, type: string }
+      build_args: { required: false, type: string }
+      image_title: { required: true, type: string }
+      image_description: { required: true, type: string }
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate context
+        run: |
+          [ -d "./${{ inputs.service_name }}" ] || { echo "Directory missing"; exit 1; }
+          [ -f "./${{ inputs.service_name }}/Dockerfile" ] || { echo "Dockerfile missing"; exit 1; }
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build local image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ inputs.service_name }}
+          load: true # Loads image into local Docker daemon for scanning
+          tags: local_scan_target:latest
+          build-args: ${{ inputs.build_args }}
+
+#      - name: Scan image with Anchore
+#        uses: anchore/scan-action@v3
+#        with:
+#          image: "local_scan_target:latest"
+#          fail-build: true
+#          severity-cutoff: high # Fails on High or Critical
+#          auto-update: true
+#          # extra-args: "--skip-db-update-check"
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ inputs.service_name }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ inputs.docker_tags }}
+          build-args: ${{ inputs.build_args }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
