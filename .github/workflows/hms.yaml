@@ -1,0 +1,43 @@
+name: Build and Publish auto-fpt-hms Image
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+    paths: ["hms/**", ".github/workflows/hms.yaml", ".github/workflows/build-and-publish.yaml"]
+  pull_request:
+    branches: ["main"]
+    paths: ["hms/**", ".github/workflows/hms.yaml", ".github/workflows/build-and-publish.yaml"]
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      owner_lc: ${{ steps.set_owner.outputs.owner_lc }}
+    steps:
+      - id: set_owner
+        run: echo "owner_lc=${OWNER,,}" >> $GITHUB_OUTPUT
+        env:
+          OWNER: ${{ github.repository_owner }}
+
+  build-and-push:
+    needs: prepare
+    strategy:
+      matrix:
+        hms_version:
+          - { version: '4.12', tag_suffix: '4.12', is_latest: false }
+          - { version: '4.13', tag_suffix: '4.13', is_latest: true }
+          - { version: '4.13-beta.6', tag_suffix: '4.13-beta.6', is_latest: false }
+          - { version: '4.14-beta.1', tag_suffix: '4.14-beta.1', is_latest: false }
+    uses: ./.github/workflows/build-and-publish.yaml
+    with:
+      service_name: hms
+      docker_tags: |
+        ghcr.io/${{ needs.prepare.outputs.owner_lc }}/auto-fpt-hms:${{ matrix.hms_version.tag_suffix }}
+        ${{ matrix.hms_version.is_latest && format('ghcr.io/{0}/auto-fpt-hms:latest', needs.prepare.outputs.owner_lc) || '' }}
+      build_args: HMS_VERSION=${{ matrix.hms_version.version }}
+      image_title: auto-fpt-hms
+      image_description: Docker container for running HEC-HMS hydrological simulations
+    permissions:
+      contents: read
+      packages: write
