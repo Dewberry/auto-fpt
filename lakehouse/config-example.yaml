@@ -1,0 +1,9 @@
+catalog:
+  type: glue
+  warehouse: "s3://<bucket>/warehouse"
+  region: "us-east-1"
+
+warehouse:
+  namespace: observations
+  tables:
+    - usgs
