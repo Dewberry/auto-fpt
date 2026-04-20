@@ -1,0 +1,13 @@
+__pycache__
+.venv
+dist
+.direnv
+stac_geoparquet/_version.py
+.cache
+site
+docs/**/*.jsonl
+*table
+*.parquet
+.ipynb_checkpoints
+venv
+/venv/
