@@ -4,13 +4,14 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import logging
 
+from shared.constants import DEFAULT_OUTPUT_PREFIX, DEFAULT_OUTPUT_TIMESTAMP_FMT
+from shared.utils import parse_tz_aware_time
+
 configure_logger(level="INFO")
 
-DEFAULT_OUTPUT_PREFIX = "s3://flood-warning/staging/temporary/usgs/"
 DEFAULT_LOOKBACK = timedelta(hours=2)
-DEFAULT_OUTPUT_TIMESTAMP_FMT = '%Y%m%d_%H%M'
 USGS_PARAMETERS = ["00060", "00065", "00045", "62614", "62615", "62616", "62617", "62618"] # Default parameters: Discharge, Gage Height, Precipitation, and all lake level parameters
-DEFAULT_PAYLOAD = "s3://flood-warning/staging/payloads/usgs-v0.1.parquet"
+DEFAULT_PAYLOAD = "s3://flood-warning/staging/payloads/usgs-v0.2.parquet"
 
 def read_payload_parquet(file_path: str) -> list[str]:
     """Reads the payload Parquet file and extracts a list of gage IDs."""
@@ -72,25 +73,19 @@ def handler(event = None, context=None):
     usgs_params = event.get("usgs_params", USGS_PARAMETERS)
 
     if event.get("end_time"):
-        end_date = datetime.fromisoformat(event["end_time"])
-        if end_date.tzinfo is None:
-            raise ValueError(f"{end_date} must be tz-aware (e.g. '2026-04-20T05:00:00-05:00' or '2026-01-01T00:00Z for UTC').")
-        end_date = end_date.astimezone(timezone.utc)
+        end_date = parse_tz_aware_time(event["end_time"])
     else:
         end_date = datetime.now(tz=timezone.utc)
 
     if event.get("start_time"):
-        start_date = datetime.fromisoformat(event["start_time"])
-        if start_date.tzinfo is None:
-            raise ValueError(f"{start_date} must be tz-aware (e.g. '2026-04-20T05:00:00-05:00' or '2026-01-01T00:00Z for UTC').")
-        start_date = start_date.astimezone(timezone.utc)
+        start_date = parse_tz_aware_time(event["start_time"])
     else:
         start_date = end_date - DEFAULT_LOOKBACK
 
     if start_date >= end_date:
         raise ValueError(f"start_time ({start_date}) must be before end_time ({end_date}).")
 
-    output_path = event.get("output_path", f"{DEFAULT_OUTPUT_PREFIX}{end_date.strftime(DEFAULT_OUTPUT_TIMESTAMP_FMT)}.parquet")
+    output_path = event.get("output_path", f"{DEFAULT_OUTPUT_PREFIX}usgs/{end_date.strftime(DEFAULT_OUTPUT_TIMESTAMP_FMT)}.parquet")
 
     main(
         gage_ids=gage_ids,
