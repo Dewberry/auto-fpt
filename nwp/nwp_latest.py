@@ -3,8 +3,8 @@ from cosecha import configure_logger
 from datetime import datetime, timedelta, timezone
 import logging
 
-from shared.constants import REGION_BOUNDS, DEFAULT_OUTPUT_PREFIX, DEFAULT_OUTPUT_TIMESTAMP_FMT
-from shared.utils import save_netcdf_to_s3, parse_tz_aware_time
+from shared.constants import REGION_BOUNDS
+from shared.utils import save_netcdf_to_s3, parse_tz_aware_time, generate_default_path
 
 configure_logger(level="INFO")
 
@@ -57,7 +57,7 @@ def handler(event = None, context = None):
     else:
         init_time = dt_now.replace(minute=0, second=0, microsecond=0) - DEFAULT_LOOKBACK
 
-    output_path = event.get("output_path", f"{DEFAULT_OUTPUT_PREFIX}{model}/{dt_now.strftime(DEFAULT_OUTPUT_TIMESTAMP_FMT)}.nc")
+    output_path = event.get("output_path", generate_default_path(model, dt_now, "nc"))
 
     main(
         init_time=init_time,

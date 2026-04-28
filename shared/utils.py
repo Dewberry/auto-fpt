@@ -5,6 +5,12 @@ import logging
 from urllib.parse import urlparse
 from datetime import datetime, timezone
 
+from shared.constants import DEFAULT_OUTPUT_PREFIX, DEFAULT_OUTPUT_TIMESTAMP_FMT
+
+def generate_default_path(folder: str, time_ref: datetime, extension: str) -> str:
+    """Generates a default output path for the given source folder and reference time."""
+    return f"{DEFAULT_OUTPUT_PREFIX}{folder}/{time_ref.strftime(DEFAULT_OUTPUT_TIMESTAMP_FMT)}.{extension}"
+
 def save_netcdf_to_s3(reaper, output_path: str) -> None:
     """Saves a NetCDF file to a temporary local file before uploading to S3 to bypass s3fs limitations."""
     if output_path.startswith("s3://"):

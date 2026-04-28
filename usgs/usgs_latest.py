@@ -4,8 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import logging
 
-from shared.constants import DEFAULT_OUTPUT_PREFIX, DEFAULT_OUTPUT_TIMESTAMP_FMT
-from shared.utils import parse_tz_aware_time
+from shared.utils import parse_tz_aware_time, generate_default_path
 
 configure_logger(level="INFO")
 
@@ -85,7 +84,7 @@ def handler(event = None, context=None):
     if start_date >= end_date:
         raise ValueError(f"start_time ({start_date}) must be before end_time ({end_date}).")
 
-    output_path = event.get("output_path", f"{DEFAULT_OUTPUT_PREFIX}usgs/{end_date.strftime(DEFAULT_OUTPUT_TIMESTAMP_FMT)}.parquet")
+    output_path = event.get("output_path", generate_default_path("usgs", end_date, "parquet"))
 
     main(
         gage_ids=gage_ids,

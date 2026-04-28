@@ -3,8 +3,8 @@ from cosecha import configure_logger
 from datetime import datetime, timedelta, timezone
 import logging
 
-from shared.constants import REGION_BOUNDS, DEFAULT_OUTPUT_PREFIX, DEFAULT_OUTPUT_TIMESTAMP_FMT
-from shared.utils import save_netcdf_to_s3, parse_tz_aware_time
+from shared.constants import REGION_BOUNDS
+from shared.utils import save_netcdf_to_s3, parse_tz_aware_time, generate_default_path
 
 configure_logger(level="INFO")
 
@@ -67,7 +67,7 @@ def handler(event = None, context = None):
     if output_path is None:
         clean_var = variable.rsplit('_', 1)[0].lower() # Remove height from var name for cleaner output path (e.g. "MultiSensor_QPE_01H_Pass2_00.00" -> "multisensor_qpe_01h_pass2"
         dt_now = datetime.now(tz=timezone.utc)
-        output_path = f"{DEFAULT_OUTPUT_PREFIX}mrms/{clean_var}/{dt_now.strftime(DEFAULT_OUTPUT_TIMESTAMP_FMT)}.nc"
+        output_path = generate_default_path(f"mrms/{clean_var}", dt_now, "nc")
 
     main(
         start_time=start_time,
