@@ -17,20 +17,16 @@ def save_netcdf_to_s3(reaper, output_path: str) -> None:
         parsed = urlparse(output_path)
         bucket = parsed.netloc
         key = parsed.path.lstrip('/')
-        
-        with tempfile.NamedTemporaryFile(suffix=".nc", delete=False) as tmp:
-            tmp_path = tmp.name
-            
-        logging.info(f"Saving temporary output to {tmp_path}...")
-        reaper.sow_to_netcdf(file_path=tmp_path)
-        
-        logging.info(f"Uploading to {output_path}...")
-        s3 = boto3.client('s3')
-        s3.upload_file(tmp_path, bucket, key)
-        os.remove(tmp_path)
-    else:
-        logging.info(f"Saving output to {output_path}...")
-        reaper.sow_to_netcdf(file_path=output_path)
+
+        with tempfile.NamedTemporaryFile(suffix=".nc", delete=True) as tmp:
+            logging.info(f"Saving temporary output to {tmp.name}...")
+            reaper.sow_to_netcdf(file_path=tmp.name)
+            logging.info(f"Uploading to {output_path}...")
+            boto3.client('s3').upload_file(tmp.name, bucket, key)
+        return
+
+    logging.info(f"Saving output to {output_path}...")
+    reaper.sow_to_netcdf(file_path=output_path)
 
 def parse_tz_aware_time(time_str: str) -> datetime:
     """Parses an ISO datetime string and ensures it is timezone-aware, returning UTC."""
