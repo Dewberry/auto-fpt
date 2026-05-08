@@ -1,1 +1,3 @@
 cosecha==0.1.1
+pytest==9.0.3
+jsonschema==4.26.0

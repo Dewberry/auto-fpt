@@ -1,3 +1,5 @@
 pandas==3.0.2
 s3fs==2026.3.0
 cosecha==0.1.1
+pytest==9.0.3
+jsonschema==4.26.0

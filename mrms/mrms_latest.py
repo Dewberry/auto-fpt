@@ -2,6 +2,7 @@ from cosecha.reaping.mrms import MRMSReaper
 from cosecha import configure_logger
 from datetime import datetime, timedelta, timezone
 import logging
+import xarray as xr
 
 from shared.constants import REGION_BOUNDS
 from shared.utils import save_netcdf_to_s3, parse_tz_aware_time, generate_default_path
@@ -9,6 +10,44 @@ from shared.utils import save_netcdf_to_s3, parse_tz_aware_time, generate_defaul
 configure_logger(level="INFO")
 
 DEFAULT_VARIABLE = "MultiSensor_QPE_01H_Pass2_00.00" 
+
+MRMS_VARIABLE_MAPPING = {
+    'MultiSensor_QPE_01H_Pass2_00.00': {'var_name': "qpe_1hr", 'qc_flag': 'pass2', 'units': 'mm'},
+    'RadarOnly_QPE_15M_00.00': {'var_name': "qpe_15min", 'qc_flag': 'radar_only', 'units': 'mm'},
+}
+
+def transform(ds: xr.Dataset) -> xr.Dataset:
+    """Apply transformations to each dataset in the dictionary, such as renaming variables and dropping unnecessary ones."""
+
+    for var, attrs in MRMS_VARIABLE_MAPPING.items():
+        if var in ds.variables:
+            ds[var].attrs['qc_flag'] = attrs['qc_flag']
+            ds[var].attrs['units'] = attrs['units']
+
+    rename_mapping = {k: v['var_name'] for k, v in MRMS_VARIABLE_MAPPING.items() if k in ds.variables}
+    if rename_mapping:
+        ds = ds.rename(rename_mapping)
+
+            
+    ds = ds.drop_vars(['step', 'heightAboveSea', 'valid_time'], errors='ignore')
+    return ds
+
+def fetch_mrms_data(variable: str, input_time: str | tuple[str, str]) -> tuple[MRMSReaper, xr.Dataset]:
+    """Fetch raw MRMS data from the API."""
+    logging.info(f"Fetching MRMS data for variable {variable} for time {input_time} UTC...")
+    
+    reaper = MRMSReaper(
+        dates=input_time,
+        variable=variable,
+        transformations={
+            "spatial_subset": {
+                'lat_bounds': (REGION_BOUNDS[1], REGION_BOUNDS[3]),
+                'lon_bounds': (REGION_BOUNDS[0], REGION_BOUNDS[2])
+            }
+        }
+    )
+
+    return reaper, reaper.reap()
 
 def main(start_time: datetime | None, end_time: datetime | None, variable: str, output_path: str) -> None:
     """Orchestrates the data extraction and saving for MRMS."""
@@ -25,18 +64,8 @@ def main(start_time: datetime | None, end_time: datetime | None, variable: str, 
     
     logging.info(f"Fetching MRMS data for variable {variable}, time {input_time} UTC...")
     
-    reaper = MRMSReaper(
-        dates=input_time,
-        variable=variable,
-        transformations={
-            "spatial_subset": {
-                'lat_bounds': (REGION_BOUNDS[1], REGION_BOUNDS[3]),
-                'lon_bounds': (REGION_BOUNDS[0], REGION_BOUNDS[2])
-            }
-        }
-    )
-
-    _ = reaper.reap()
+    reaper, data = fetch_mrms_data(variable, input_time)
+    reaper.data = transform(data)
 
     save_netcdf_to_s3(reaper, output_path)
     

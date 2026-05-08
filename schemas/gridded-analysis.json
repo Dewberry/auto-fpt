@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "0.1.0",
+  "type": "object",
+  "required": ["dims", "coords", "data_vars"],
+  "properties": {
+    "dims": {
+      "type": "object",
+      "required": ["time", "latitude", "longitude"],
+      "properties": {
+        "time": {"type": "integer"},
+        "latitude": {"type": "integer"},
+        "longitude": {"type": "integer"}
+      }
+    },
+    "coords": {
+      "type": "object",
+      "required": ["time", "latitude", "longitude"],
+      "properties": {
+        "time": {"type": "object"},
+        "latitude": {"type": "object"},
+        "longitude": {"type": "object"}
+      }
+    },
+    "data_vars": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "qpe_1hr": {"type": "object"},
+        "qpe_15min": {"type": "object"}
+      }
+    },
+    "attrs": {"type": "object"}
+  }
+}
