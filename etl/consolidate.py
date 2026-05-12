@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Union
 import s3fs
 
-from etl.time_series.time_series import process_time_series_source
+from etl.point.point import process_point_data_source
 from etl.gridded.gridded import process_gridded_source
 from etl.shared.utils import load_config_parquet
 from etl.shared._logging import logger, configure_logger
@@ -12,11 +12,15 @@ configure_logger(level="INFO")
 SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 DEFAULT_CONFIG_PATH = 's3://flood-warning/dev/config.pq'
 
+
 def process_source(source: Union[str, list[str]], config_path: str):
+    """Process one or more sources as specified in the config file."""
 
     config = load_config_parquet(sources=source, config_path=config_path)
-
     fs = s3fs.S3FileSystem(anon=False)
+
+    successful_sources = []
+    failed_sources = []
 
     for source, source_config in config.items():
         logger.info(f"Processing source: {source}")
@@ -34,7 +38,6 @@ def process_source(source: Union[str, list[str]], config_path: str):
                 
                 process_gridded_source(
                     fs=fs,
-                    source=source,
                     input_prefix=input_prefix,
                     schema_path=schema,
                     bucket=bucket,
@@ -44,14 +47,13 @@ def process_source(source: Union[str, list[str]], config_path: str):
                     group=group
                 )
 
-            if dest_type == "iceberg":
+            elif dest_type == "iceberg":
                 table = source_config['table']
                 namespace = source_config['namespace']
                 warehouse_path = f"s3://{bucket}/{prefix}"
 
-                process_time_series_source(
+                process_point_data_source(
                     fs=fs,
-                    source_name=source,
                     input_prefix=input_prefix,
                     schema_path=schema,
                     warehouse_path=warehouse_path,
@@ -60,10 +62,17 @@ def process_source(source: Union[str, list[str]], config_path: str):
                     time_col=append_param,
                     region=region
                 )
+            else:
+                raise ValueError(f"Unsupported dest_type '{dest_type}' for source '{source}'")
+            
+            logger.info(f"Finished processing source: {source}")
+            successful_sources.append(source)
+
         except Exception as e:
             logger.error(f"Error processing source {source}: {e}")
+            failed_sources.append(source)
 
-    return {"status": "success"}
+    return {"successful_sources": successful_sources, "failed_sources": failed_sources}
 
 def handler(event=None, context=None):
     if event is None:
@@ -76,11 +85,15 @@ def handler(event=None, context=None):
         source=source,
         config_path=config_path
     )
-    
+
+    failed_sources = result["failed_sources"]
+    if failed_sources:
+        raise RuntimeError(f"Task failed for sources: {', '.join(failed_sources)}")
+
     return {
         "statusCode": 200,
         "body": {
-            "message": "Task completed",
+            "message": "Task completed successfully",
             "source": source,
             "result": result
         }

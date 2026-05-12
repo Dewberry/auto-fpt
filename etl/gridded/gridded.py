@@ -1,14 +1,11 @@
-from typing import Union
 from jsonschema import ValidationError, validate
-import xarray as xr
 import s3fs
+import xarray as xr
 
 from etl.gridded.icechunk_utils import IcechunkManager
 from etl.shared.exceptions import EmptyDataError
 from etl.shared.utils import delete_s3_files, read_s3_files, load_schema
-from etl.shared._logging import logger, configure_logger
-
-configure_logger(level="INFO")
+from etl.shared._logging import logger
 
 
 def validate_dataset_schema(ds: xr.Dataset, schema_path: str):
@@ -39,8 +36,10 @@ def load_data(s3_paths: list[str], schema_path: str, concat_dim: str = "valid_ti
             files_to_delete.append(file_path)
         except ValidationError as e:
             logger.error(f"Validation error for {file_path}: {e}")
+            # If schema validation fails, we want to save the file for further investigation
         except Exception as e: 
             logger.error(f"Unexpected error reading {file_path}: {e}")
+            # If error is unexpected, we want to save the file for further investigation
 
     if not datasets:
         raise RuntimeError(f"Could not read any valid data from {s3_paths}")
@@ -54,7 +53,6 @@ def load_data(s3_paths: list[str], schema_path: str, concat_dim: str = "valid_ti
 
 def process_gridded_source(
     fs: s3fs.S3FileSystem,
-    source: str,
     input_prefix: str,
     schema_path: str,
     bucket: str,
@@ -63,7 +61,19 @@ def process_gridded_source(
     region: str,
     group: str = None,
 ):
-
+    """
+    Process a gridded data source by loading data from S3, validating it, and writing to Icechunk.
+    
+    Args:
+        fs: s3fs filesystem instance.
+        input_prefix: S3 prefix to read input files from.
+        schema_path: Local path to JSON schema for validation.
+        bucket: S3 bucket name for Icechunk storage.
+        icechunk_prefix: S3 prefix for Icechunk storage.
+        concat_dim: Dimension name to concatenate on.
+        region: AWS region for S3 bucket.
+        group: Optional Zarr group path for Icechunk. If None, writes to root.
+    """
     s3_paths = read_s3_files(fs, input_prefix)
 
     if not s3_paths:
@@ -71,7 +81,6 @@ def process_gridded_source(
     
     manager = IcechunkManager(bucket=bucket, prefix=icechunk_prefix, region=region)
 
-    logger.info(f"Loading data for {source} from {s3_paths}...")
     data, files_to_delete = load_data(
         s3_paths=s3_paths,
         schema_path=schema_path,
@@ -80,11 +89,8 @@ def process_gridded_source(
     manager.write_to_icechunk(
         ds=data,
         time_dim=concat_dim,
-        commit_message=f"Add {source} data",
         group=group
     )
     if len(files_to_delete) > 0:
         logger.info("Cleaning up processed files from S3...")
         delete_s3_files(fs, files_to_delete)
-
-    logger.info(f"Successfully processed and wrote data for {source}")

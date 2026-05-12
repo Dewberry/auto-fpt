@@ -1,7 +1,9 @@
 import s3fs
+import boto3
 from pathlib import Path
 from typing import Union
 import json
+from urllib.parse import urlparse
 import pandas as pd
 
 from etl.shared._logging import logger
@@ -54,6 +56,14 @@ def load_schema(schema_path: str) -> dict:
     """Load JSON schema for validation."""
     with open(schema_path) as f:
         return json.load(f)
+
+
+def _parse_s3_uri(s3_uri: str) -> tuple[str, str]:
+    """Parse an S3 URI into bucket and key."""
+    parsed = urlparse(s3_uri)
+    if parsed.scheme != "s3" or not parsed.netloc or not parsed.path:
+        raise ValueError(f"Invalid S3 URI: {s3_uri}")
+    return parsed.netloc, parsed.path.lstrip("/")
     
 
 def delete_s3_files(fs: s3fs.S3FileSystem, file_paths: list[str]) -> None:
@@ -68,11 +78,18 @@ def delete_s3_files(fs: s3fs.S3FileSystem, file_paths: list[str]) -> None:
         logger.info("No files provided for deletion.")
         return
 
+    _ = fs  # Retained for backward compatibility with existing call sites.
+    s3_client = boto3.client("s3")
+
     deleted_count = 0
     for file_path in file_paths:
         try:
             logger.info(f"Deleting file: {file_path}")
-            fs.rm(file_path)
+            bucket, key = _parse_s3_uri(file_path)
+            response = s3_client.delete_object(Bucket=bucket, Key=key)
+            status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if status_code is None or not (200 <= status_code < 300):
+                raise RuntimeError(f"DeleteObject returned status code {status_code}")
             deleted_count += 1
         except Exception as e:
             logger.error(f"Failed to delete file {file_path}: {e}")
@@ -97,7 +114,8 @@ def find_files(fs: s3fs.S3FileSystem, s3_path: str) -> list[str]:
 
 def read_s3_files(fs: s3fs.S3FileSystem, prefix: Union[str, list]) -> list[str]:
     """Read files from S3 based on a prefix or list of prefixes."""
-
+    
+    logger.info(f"Reading files from S3 with prefix(es): {prefix}")
     if isinstance(prefix, list):
         s3_paths = []
         for p in prefix:
@@ -106,5 +124,6 @@ def read_s3_files(fs: s3fs.S3FileSystem, prefix: Union[str, list]) -> list[str]:
         s3_paths = find_files(fs, prefix)
     else:
         raise ValueError(f"Invalid prefix type: {type(prefix)}. Must be str or list of prefix.")
-
+    
+    logger.info(f"Found {len(s3_paths)} files at prefix(es) {prefix}")
     return s3_paths

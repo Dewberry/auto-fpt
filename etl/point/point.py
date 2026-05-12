@@ -5,12 +5,11 @@ import pandas as pd
 import pyarrow as pa
 from pyarrow import ArrowInvalid
 
-from etl.time_series.iceberg_utils import IcebergManager
-from etl.shared._logging import logger, configure_logger
+from etl.point.iceberg_utils import IcebergManager
+from etl.shared._logging import logger
 from etl.shared.exceptions import EmptyDataError
 from etl.shared.utils import delete_s3_files, read_s3_files, load_schema
 
-configure_logger(level="INFO")
 
 def validate_df_schema(df: pd.DataFrame, schema_path: str):
     """Validate a DataFrame against a JSON schema."""
@@ -58,9 +57,8 @@ def load_data(fs, s3_paths: list[str], schema_path: str) -> pd.DataFrame:
 
     return df_unique, files_to_delete
 
-def process_time_series_source(
+def process_point_data_source(
     fs: s3fs.S3FileSystem,
-    source_name: str,
     input_prefix: str,
     schema_path: str,
     warehouse_path: str,
@@ -69,6 +67,19 @@ def process_time_series_source(
     time_col: str,
     region: str = "us-east-1",
 ):
+    """Process a point data source by reading files from S3, validating and concatenating them, and writing to an Iceberg table.
+    
+    Args:
+        fs (s3fs.S3FileSystem): An instance of the S3 filesystem to read from and write to S3.
+        source_name (str): The name of the data source being processed, used for logging.
+        input_prefix (str): The S3 prefix where input files are located.
+        schema_path (str): The local path to the JSON schema for validating input data.
+        warehouse_path (str): The S3 path to the Iceberg warehouse where the table is located.
+        namespace (str): The Iceberg namespace for the table.
+        table_name (str): The name of the Iceberg table to write to.
+        time_col (str): The name of the time column in the data, used for partitioning and de-duplication.
+        region (str): The AWS region for the S3 bucket and Iceberg catalog. Defaults to "us-east-1".    
+        """
 
     file_paths = read_s3_files(fs, input_prefix)
     iceberg = IcebergManager(warehouse_path=warehouse_path, region=region, namespace=namespace, table_name=table_name)
@@ -86,5 +97,3 @@ def process_time_series_source(
     if len(files_to_delete) > 0:
         logger.info("Cleaning up processed files from S3...")
         delete_s3_files(fs, files_to_delete)
-
-    logger.info(f"Successfully processed and wrote data for {source_name}")

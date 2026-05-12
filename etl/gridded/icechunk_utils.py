@@ -13,7 +13,7 @@ class IcechunkManager:
         Args:
             bucket: S3 bucket name.
             prefix: S3 prefix for Icechunk storage.
-            region: AWS region for the S3 bucket.
+            region: AWS region for the S3 bucket. Defaults to "us-east-1".
         """
         
         self.bucket = bucket
@@ -39,7 +39,7 @@ class IcechunkManager:
             repo = ic.Repository.create(self.storage)
         return repo
 
-    def write_to_icechunk(self, ds: xr.Dataset, time_dim: str, commit_message: str, group: str = None):
+    def write_to_icechunk(self, ds: xr.Dataset, time_dim: str, commit_message: str = None, group: str = None):
         """
         Write or append a dataset to Icechunk, avoiding duplicate time values.
         
@@ -71,13 +71,14 @@ class IcechunkManager:
             write_kwargs["encoding"] = {
                 time_dim: {"units": "seconds since 1970-01-01", "dtype": "int64"}
             }
-            # if "valid_time" in ds_to_write.variables and not time_dim == "valid_time":
-            #     write_kwargs["encoding"]["valid_time"] = {"units": "seconds since 1970-01-01", "dtype": "int64"}
 
         # Check if anything to write
         if ds_to_write[time_dim].size == 0:
             logger.info(f"No new {time_dim} values to write (Group: {group}).")
             return
+        
+        if commit_message is None:
+            commit_message = f"Append data with times: {ds_to_write[time_dim].values}"
 
         # Only open a transaction if there is data to write
         with self.repo.transaction("main", message=commit_message) as store:
