@@ -127,9 +127,14 @@ class IcebergManager:
         """Load and return the Iceberg table instance."""
         return self.catalog.load_table(self.full_table_name)
 
-    def read_table(self, row_filter=None) -> pa.Table:
+    def read_table(self, row_filter=None, time_col: str = None, start_time=None, end_time=None) -> pa.Table:
         """Read data from the Iceberg table into a PyArrow table, optionally applying a filter."""
         try:
+            if time_col and start_time is not None and end_time is not None:
+                row_filter = And(
+                    GreaterThanOrEqual(time_col, start_time),
+                    LessThanOrEqual(time_col, end_time)
+                )
             iceberg_table = self.get_table()
             scan = iceberg_table.scan(row_filter=row_filter) if row_filter else iceberg_table.scan()
             table_data = scan.to_arrow()
