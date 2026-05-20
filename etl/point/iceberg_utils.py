@@ -19,21 +19,18 @@ class IcebergManager:
 
     def get_catalog(self):
         """Load Glue Catalog with configuration from config.yaml."""
+        os.environ['AWS_DEFAULT_REGION'] = self.region
+        os.environ['AWS_REGION'] = self.region
+
         catalog_config = {
-            "region": self.region,
+            "s3.region": self.region,
             "warehouse": self.warehouse_path
         }
 
-        if 'region' in catalog_config:
-            region = catalog_config.pop('region')
-            catalog_config['s3.region'] = region 
-            os.environ['AWS_DEFAULT_REGION'] = region
-            os.environ['AWS_REGION'] = region
-
-        if 'warehouse' in catalog_config and catalog_config['warehouse'].startswith('s3://'):
+        if self.warehouse_path.startswith('s3://'):
             catalog_config['type'] = 'glue'
             catalog_config['py-io-impl'] = 'pyiceberg.io.fsspec.FsspecFileIO'
-            
+
         return load_catalog("local", **catalog_config)
 
     def delete_table(self) -> bool:
