@@ -1,0 +1,15 @@
+sources:
+  hrrr:
+    consolidate_source_name: "hrrr"
+    filename: "hrrr_qpf.nc"
+    variable: "qpf_1hr"
+  rtma:
+    consolidate_source_name: "rtma"
+    filename: "rtma_temp.nc"
+    variable: "temp_2m"
+    lookback_hours: 338
+  mrms:
+    consolidate_source_name: "mrms_hourly"
+    filename: "mrms_qpe.nc"
+    variable: "qpe_1hr"
+    lookback_hours: 338

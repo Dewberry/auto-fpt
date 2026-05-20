@@ -1,0 +1,54 @@
+sources:
+  hrrr:
+    source_type: "netcdf"
+    dest_type: "icechunk"
+    schema: "gridded-forecast.json"
+    input_prefix: "s3://flood-warning/staging/temporary/hrrr"
+    bucket: "flood-warning"
+    region: "us-east-1"
+    prefix: "dev/icechunk/hrrr"
+    append_param: "init_time"
+
+  rtma:
+    source_type: "netcdf"
+    dest_type: "icechunk"
+    schema: "gridded-forecast.json"
+    input_prefix: "s3://flood-warning/staging/temporary/rtma"
+    bucket: "flood-warning"
+    region: "us-east-1"
+    prefix: "dev/icechunk/rtma"
+    append_param: "valid_time"
+
+  mrms_hourly:
+    source_type: "netcdf"
+    dest_type: "icechunk"
+    schema: "gridded-analysis.json"
+    input_prefix: "s3://flood-warning/staging/temporary/mrms/multisensor_qpe_01h_pass2"
+    bucket: "flood-warning"
+    region: "us-east-1"
+    prefix: "dev/icechunk/mrms"
+    append_param: "valid_time"
+    group: "hourly"
+
+  mrms_15min:
+    source_type: "netcdf"
+    dest_type: "icechunk"
+    schema: "gridded-analysis.json"
+    input_prefix: "s3://flood-warning/staging/temporary/mrms/radaronly_qpe_15m"
+    bucket: "flood-warning"
+    region: "us-east-1"
+    prefix: "dev/icechunk/mrms"
+    append_param: "valid_time"
+    group: "15min"
+
+  usgs:
+    source_type: "parquet"
+    dest_type: "iceberg"
+    schema: "point.json"
+    input_prefix: "s3://flood-warning/staging/temporary/usgs"
+    bucket: "flood-warning"
+    prefix: "dev/warehouse"
+    region: "us-east-1"
+    append_param: "timestamp"
+    namespace: "observations"
+    table: "usgs"

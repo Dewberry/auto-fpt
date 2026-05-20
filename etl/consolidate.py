@@ -13,7 +13,7 @@ SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 DEFAULT_CONFIG_PATH = 's3://flood-warning/dev/config.pq'
 
 
-def process_source(source: Union[str, list[str]], config_path: str):
+def process_sources(source: Union[str, list[str]], config_path: str):
     """Process one or more sources as specified in the config file."""
 
     config = load_config_parquet(sources=source, config_path=config_path)
@@ -81,7 +81,7 @@ def handler(event=None, context=None):
     source = event['source']
     config_path = event.get('config_path', DEFAULT_CONFIG_PATH)
     
-    result = process_source(
+    result = process_sources(
         source=source,
         config_path=config_path
     )

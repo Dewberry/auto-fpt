@@ -5,6 +5,9 @@ from typing import Union
 import json
 from urllib.parse import urlparse
 import pandas as pd
+import xarray as xr
+import tempfile
+from datetime import datetime, timezone
 
 from etl.shared._logging import logger
 
@@ -127,3 +130,25 @@ def read_s3_files(fs: s3fs.S3FileSystem, prefix: Union[str, list]) -> list[str]:
     
     logger.info(f"Found {len(s3_paths)} files at prefix(es) {prefix}")
     return s3_paths
+
+
+def upload_ds_to_s3(ds: xr.Dataset, s3_path: str, compression_lvl: int = 2) -> None:
+    """Write dataset to a temp NetCDF file and upload to S3."""
+
+    logger.info(f"Uploading dataset to {s3_path}...")
+
+    path = s3_path.replace("s3://", "")
+    s3_bucket, s3_key = path.split("/", 1)
+    with tempfile.NamedTemporaryFile(suffix=".nc") as tmp:
+        encoding = {var: {"zlib": True, "complevel": compression_lvl} for var in ds.data_vars}
+        ds.to_netcdf(tmp.name, engine='h5netcdf', encoding=encoding)
+        boto3.client("s3").upload_file(tmp.name, s3_bucket, s3_key)
+
+    logger.info(f"Uploaded to {s3_path}")
+
+def parse_tz_aware_time(time_str: str) -> datetime:
+    """Parses an ISO datetime string and ensures it is timezone-aware, returning UTC."""
+    event_time = datetime.fromisoformat(time_str)
+    if event_time.tzinfo is None:
+        raise ValueError(f"{event_time} must be tz-aware (e.g. '2026-04-20T05:00:00-05:00' or '2026-01-01T00:00Z' for UTC).")
+    return event_time.astimezone(timezone.utc)
