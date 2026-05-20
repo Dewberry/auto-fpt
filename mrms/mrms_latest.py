@@ -1,6 +1,8 @@
+import pandas as pd
+import numpy as np
 from cosecha.reaping.mrms import MRMSReaper
 from cosecha import configure_logger
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import logging
 import xarray as xr
 
@@ -12,8 +14,8 @@ configure_logger(level="INFO")
 DEFAULT_VARIABLE = "MultiSensor_QPE_01H_Pass2_00.00" 
 
 MRMS_VARIABLE_MAPPING = {
-    'MultiSensor_QPE_01H_Pass2_00.00': {'var_name': "qpe_1hr", 'qc_flag': 'pass2', 'units': 'mm'},
-    'RadarOnly_QPE_15M_00.00': {'var_name': "qpe_15min", 'qc_flag': 'radar_only', 'units': 'mm'},
+    'MultiSensor_QPE_01H_Pass2_00.00': {'var_name': "qpe_1hr", 'attrs': {'standard_name': 'precipitation_amount', 'units': 'kg m-2', 'long_name': '1-hour Pass 2 Quantitative Precipitation Estimate'}},
+    'RadarOnly_QPE_15M_00.00': {'var_name': "qpe_15min", 'attrs': {'standard_name': 'precipitation_amount', 'units': 'kg m-2', 'long_name': '15-minute Radar Only Quantitative Precipitation Estimate'}},
 }
 
 def transform(ds: xr.Dataset) -> xr.Dataset:
@@ -21,8 +23,8 @@ def transform(ds: xr.Dataset) -> xr.Dataset:
 
     for var, attrs in MRMS_VARIABLE_MAPPING.items():
         if var in ds.variables:
-            ds[var].attrs['qc_flag'] = attrs['qc_flag']
-            ds[var].attrs['units'] = attrs['units']
+            ds[var].attrs = attrs['attrs']
+            ds[var].attrs.update({"grid_mapping": "crs"})
 
     rename_mapping = {k: v['var_name'] for k, v in MRMS_VARIABLE_MAPPING.items() if k in ds.variables}
     if rename_mapping:
@@ -30,7 +32,30 @@ def transform(ds: xr.Dataset) -> xr.Dataset:
 
             
     ds = ds.drop_vars(['step', 'heightAboveSea', 'valid_time'], errors='ignore')
+    ds = ds.rename({'time': 'valid_time'})
+
+    crs_var = xr.DataArray(np.int32(0), attrs={
+        "grid_mapping_name": "latitude_longitude",
+        "longitude_of_prime_meridian": 0.0,
+        "semi_major_axis": 6378137.0,
+        "inverse_flattening": 298.257223563,
+        "crs_wkt": 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]',
+    })
+
+    ds = ds.assign_coords(crs=crs_var)
+    ds["latitude"].attrs.pop("stored_direction", None)
+
+    ds["valid_time"].attrs.update({
+        "standard_name": "time",
+        "long_name": "valid time",
+    })
+
+    ds.attrs.update({
+        "Conventions": "CF-1.9",
+        "title": "Multi-Radar Multi-Sensor System (MRMS)",
+    })
     return ds
+
 
 def fetch_mrms_data(variable: str, input_time: str | tuple[str, str]) -> tuple[MRMSReaper, xr.Dataset]:
     """Fetch raw MRMS data from the API."""
@@ -48,6 +73,7 @@ def fetch_mrms_data(variable: str, input_time: str | tuple[str, str]) -> tuple[M
     )
 
     return reaper, reaper.reap()
+
 
 def main(start_time: datetime | None, end_time: datetime | None, variable: str, output_path: str) -> None:
     """Orchestrates the data extraction and saving for MRMS."""
@@ -70,6 +96,7 @@ def main(start_time: datetime | None, end_time: datetime | None, variable: str, 
     save_netcdf_to_s3(reaper, output_path)
     
     logging.info("Operation complete")
+
 
 def handler(event = None, context = None):
     """AWS Lambda handler. Extracts parameters from the event dict and runs the pipeline."""

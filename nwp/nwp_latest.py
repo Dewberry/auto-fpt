@@ -3,6 +3,8 @@ from cosecha import configure_logger
 from datetime import datetime, timedelta, timezone
 import logging
 import xarray as xr
+import numpy as np
+
 from shared.constants import REGION_BOUNDS
 from shared.utils import save_netcdf_to_s3, parse_tz_aware_time, generate_default_path
 
@@ -12,28 +14,47 @@ DEFAULT_LOOKBACK = timedelta(hours=1)
 DEFAULT_FORECAST_HOURS = 18
 DEFAULT_MODEL = "hrrr"
 DEFAULT_VARIABLE = "hourly_precip"
+
 NWP_VARIABLE_MAPPING = {
-    'time': 'init_time',
-    'tp': 'qpf_1hr'
-}
+    'tp': {'var_name': "qpf_1hr", 'attrs': {'standard_name': 'precipitation_amount', 'units': 'kg m-2', 'long_name': '1-hour Total Precipitation Forecast'}}}
 
 def transform(ds: xr.Dataset) -> xr.Dataset:
     """Apply transformations to the dataset, such as renaming variables and dropping unnecessary ones."""
-    rename_mapping = {k: v for k, v in NWP_VARIABLE_MAPPING.items() if k in ds.variables}
+
+    for var, attrs in NWP_VARIABLE_MAPPING.items():
+        if var in ds.variables:
+            ds[var].attrs = attrs['attrs']
+            ds[var].attrs.update({"grid_mapping": "crs"})
+
+    rename_mapping = {k: v['var_name'] for k, v in NWP_VARIABLE_MAPPING.items() if k in ds.variables}
     if rename_mapping:
         ds = ds.rename(rename_mapping)
 
-    # Make sure init_time is a dimension to make concatenation easier downstream
+    ds = ds.rename({"time": "init_time", "gribfile_projection": "crs"})
+    crs_attrs = ds["crs"].attrs
+    ds = ds.assign_coords(crs=xr.DataArray(np.int32(0), attrs=crs_attrs))
+
     ds = ds.expand_dims({'init_time': [ds.init_time.values]})
     # Ensure valid_time includes the init_time dimension
     if 'valid_time' in ds and 'init_time' not in ds['valid_time'].dims:
         ds['valid_time'] = ds['valid_time'].expand_dims(init_time=ds.init_time)
 
-    ds = ds.drop_vars(['surface', 'gribfile_projection'], errors='ignore')
+    ds["init_time"].attrs = {
+        "standard_name": "forecast_reference_time",
+        "long_name": "initial time of forecast",
+    }
+    ds = ds.drop_vars(['surface'], errors='ignore')
+
+    ds.attrs = {
+        "Conventions": "CF-1.9",
+        "title": "High Resolution Rapid Refresh (HRRR) Forecast",
+        }
+    
     return ds
 
 def fetch_nwp_data(model: str, variable: str, init_time: datetime, forecast_hours: int) -> tuple[NWPReaper, xr.Dataset]:
-    """Fetch raw NWP data from the API."""
+    """Fetch raw NWP data using Cosecha."""
+    
     init_time_str = init_time.strftime("%Y-%m-%d %H:%M")
     logging.info(f"Fetching NWP data for model {model}, variable {variable}, init time {init_time_str} UTC, forecast hours 1-{forecast_hours}...")
     
@@ -67,7 +88,6 @@ def main(init_time: datetime, model: str, variable: str, forecast_hours: int, ou
         logging.warning(f"Expected {forecast_hours} forecast hours but got {len(data.step)}.")
 
     reaper.data = transform(data)
-
     save_netcdf_to_s3(reaper, output_path)
 
 def handler(event = None, context = None):
