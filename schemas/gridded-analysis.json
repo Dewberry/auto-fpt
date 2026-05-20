@@ -1,36 +1,110 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "version": "0.1.0",
+  "description": "Schema for gridded analysis datasets (e.g., MRMS QPE). Represents an xarray Dataset serialized to a dict, with dimensions, coordinates, data variables, and optional metadata attributes.",
   "type": "object",
   "required": ["dims", "coords", "data_vars"],
   "properties": {
     "dims": {
+      "description": "Sizes of each dimension in the dataset.",
       "type": "object",
-      "required": ["time", "latitude", "longitude"],
+      "required": ["valid_time", "latitude", "longitude"],
       "properties": {
-        "time": {"type": "integer"},
-        "latitude": {"type": "integer"},
-        "longitude": {"type": "integer"}
+        "valid_time": {
+          "description": "Number of time steps in the dataset.",
+          "type": "integer",
+          "example": 1
+        },
+        "latitude": {
+          "description": "Number of grid points along the latitude axis.",
+          "type": "integer",
+          "example": 3500
+        },
+        "longitude": {
+          "description": "Number of grid points along the longitude axis.",
+          "type": "integer",
+          "example": 7000
+        }
       }
     },
     "coords": {
+      "description": "Coordinate arrays associated with the dataset dimensions.",
       "type": "object",
-      "required": ["time", "latitude", "longitude"],
+      "required": ["valid_time", "latitude", "longitude"],
       "properties": {
-        "time": {"type": "object"},
-        "latitude": {"type": "object"},
-        "longitude": {"type": "object"}
+        "valid_time": {
+          "description": "UTC timestamps for each time step, encoded as an xarray coordinate object.",
+          "type": "object",
+          "example": {"dims": ["valid_time"], "attrs": {}, "data": ["2026-05-06T19:00:00"]}
+        },
+        "latitude": {
+          "description": "Latitude values in decimal degrees (WGS84), ranging roughly from 20° N to 55° N for CONUS.",
+          "type": "object",
+          "example": {"dims": ["latitude"], "attrs": {"units": "degrees_north"}, "data": [54.995, 54.985]}
+        },
+        "longitude": {
+          "description": "Longitude values in decimal degrees (WGS84), ranging roughly from -130° to -60° for CONUS.",
+          "type": "object",
+          "example": {"dims": ["longitude"], "attrs": {"units": "degrees_east"}, "data": [-129.995, -129.985]}
+        }
       }
     },
     "data_vars": {
+      "description": "Gridded analysis data variables. At least one variable must be present.",
       "type": "object",
       "minProperties": 1,
       "additionalProperties": false,
       "properties": {
-        "qpe_1hr": {"type": "object"},
-        "qpe_15min": {"type": "object"}
+        "qpe_1hr": {
+          "description": "Multi-sensor quantitative precipitation estimate accumulated over 1 hour (MRMS MultiSensor_QPE_01H_Pass2).",
+          "type": "object",
+          "required": ["dims", "attrs"],
+          "properties": {
+            "dims": {},
+            "attrs": {
+              "type": "object",
+              "required": ["units", "standard_name"],
+              "properties": {
+                "units": { "type": "string", "const": "kg m-2" },
+                "standard_name": { "type": "string", "const": "precipitation_amount" }
+              }
+            },
+            "data": { "type": "array" }
+          },
+          "example": {
+            "dims": ["valid_time", "latitude", "longitude"],
+            "attrs": {"units": "kg m-2", "standard_name": "precipitation_amount"},
+            "data": [[[0.0, 1.2], [3.4, 0.0]]]
+          }
+        },
+        "qpe_15min": {
+          "description": "Radar-only quantitative precipitation estimate accumulated over 15 minutes (MRMS RadarOnly_QPE_15M).",
+          "type": "object",
+          "required": ["dims", "attrs"],
+          "properties": {
+            "dims": {},
+            "attrs": {
+              "type": "object",
+              "required": ["units", "standard_name"],
+              "properties": {
+                "units": { "type": "string", "const": "kg m-2" },
+                "standard_name": { "type": "string", "const": "precipitation_amount" }
+              }
+            },
+            "data": { "type": "array" }
+          },
+          "example": {
+            "dims": ["valid_time", "latitude", "longitude"],
+            "attrs": {"units": "kg m-2", "standard_name": "precipitation_amount"},
+            "data": [[[0.0, 0.3], [0.8, 0.0]]]
+          }
+        }
       }
     },
-    "attrs": {"type": "object"}
+    "attrs": {
+      "description": "Optional dataset-level metadata attributes (e.g., source, processing history, CRS information).",
+      "type": "object",
+      "example": {"source": "MRMS", "crs": "EPSG:4326"}
+    }
   }
 }

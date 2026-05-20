@@ -1,38 +1,130 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "version": "0.1.0",
+  "description": "Schema for gridded NWP forecast datasets (e.g., HRRR, RRFS, etc.). Represents an xarray Dataset serialized to a dict, with dimensions, coordinates, data variables, and optional metadata attributes.",
   "type": "object",
   "required": ["dims", "coords", "data_vars"],
   "properties": {
     "dims": {
+      "description": "Sizes of each dimension in the dataset.",
       "type": "object",
-      "required": ["init_time", "step", "y", "x"],
+      "required": ["y", "x"],
       "properties": {
-        "init_time": {"type": "integer"},
-        "step": {"type": "integer"},
-        "y": {"type": "integer"},
-        "x": {"type": "integer"}
+        "init_time": {
+          "description": "Number of model initialization times in the dataset.",
+          "type": "integer",
+          "example": 1
+        },
+        "step": {
+          "description": "Number of forecast lead-time steps (e.g., 18 for an 18-hour forecast).",
+          "type": "integer",
+          "example": 18
+        },
+        "valid_time": {
+          "description": "Number of valid times corresponding to each forecast step.",
+          "type": "integer",
+          "example": 18
+        },
+        "y": {
+          "description": "Number of grid points along the y (latitude) axis.",
+          "type": "integer",
+          "example": 50
+        },
+        "x": {
+          "description": "Number of grid points along the x (longitude) axis.",
+          "type": "integer",
+          "example": 65
+        }
       }
     },
     "coords": {
+      "description": "Coordinate arrays associated with the dataset dimensions.",
       "type": "object",
-      "required": ["init_time", "step", "valid_time", "longitude", "latitude"],
+      "required": ["valid_time", "longitude", "latitude"],
       "properties": {
-        "init_time": {"type": "object"},
-        "step": {"type": "object"},
-        "valid_time": {"type": "object"},
-        "longitude": {"type": "object"},
-        "latitude": {"type": "object"}
+        "init_time": {
+          "description": "Model initialization time in UTC.",
+          "type": "object",
+          "example": {"dims": ["init_time"], "attrs": {}, "data": ["2026-05-15T00:00:00"]}
+        },
+        "step": {
+          "description": "Forecast lead-time offsets from init_time, encoded as timedelta64 values.",
+          "type": "object",
+          "example": {"dims": ["step"], "attrs": {}, "data": ["01:00:00", "02:00:00"]}
+        },
+        "valid_time": {
+          "description": "UTC timestamps for each forecast step, derived from init_time + step.",
+          "type": "object",
+          "example": {"dims": ["init_time", "step"], "attrs": {}, "data": [["2026-05-15T01:00:00", "2026-05-15T02:00:00"]]}
+        },
+        "longitude": {
+          "description": "Longitude values in decimal degrees (WGS84).",
+          "type": "object",
+          "example": {"dims": ["y", "x"], "attrs": {"units": "degrees_east"}, "data": [[-100.0, -99.97]]}
+        },
+        "latitude": {
+          "description": "Latitude values in decimal degrees (WGS84).",
+          "type": "object",
+          "example": {"dims": ["y", "x"], "attrs": {"units": "degrees_north"}, "data": [[30.5, 30.53]]}
+        }
       }
     },
     "data_vars": {
+      "description": "Gridded NWP forecast data variables. At least one variable must be present.",
       "type": "object",
       "minProperties": 1,
       "additionalProperties": false,
       "properties": {
-        "qpf_1hr": {"type": "object"}
+        "qpf_1hr": {
+          "description": "Hourly quantitative precipitation forecast (GRIB2 variable 'tp', total precipitation).",
+          "type": "object",
+          "required": ["dims", "attrs"],
+          "properties": {
+            "dims": {},
+            "attrs": {
+              "type": "object",
+              "required": ["units", "standard_name"],
+              "properties": {
+                "units": { "type": "string", "const": "kg m-2" },
+                "standard_name": { "type": "string", "const": "precipitation_amount" }
+              }
+            },
+            "data": { "type": "array" }
+          },
+          "example": {
+            "dims": ["init_time", "step", "y", "x"],
+            "attrs": {"units": "kg m-2", "standard_name": "precipitation_amount"},
+            "data": [[[[0.0, 0.5], [1.2, 0.0]]]]
+          }
+        },
+        "temp_2m": {
+          "description": "2-meter air temperature forecast.",
+          "type": "object",
+          "required": ["dims", "attrs"],
+          "properties": {
+            "dims": {},
+            "attrs": {
+              "type": "object",
+              "required": ["units", "standard_name"],
+              "properties": {
+                "units": { "type": "string", "const": "degC" },
+                "standard_name": { "type": "string", "const": "air_temperature" }
+              }
+            },
+            "data": { "type": "array" }
+          },
+          "example": {
+            "dims": ["init_time", "step", "y", "x"],
+            "attrs": {"units": "degC", "standard_name": "air_temperature"},
+            "data": [[[[21.95, 21.65], [22.85, 22.35]]]]
+          }
+        }
       }
     },
-    "attrs": {"type": "object"}
+    "attrs": {
+      "description": "Optional dataset-level metadata attributes (e.g., source model, initialization time, CRS information).",
+      "type": "object",
+      "example": {"source": "HRRR", "model": "hrrr", "crs": "EPSG:4326"}
+    }
   }
 }
