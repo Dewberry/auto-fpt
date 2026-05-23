@@ -25,7 +25,12 @@ _console_handler: logging.StreamHandler[IO[str]] | None = None
 _handlers = logger.handlers
 if not _handlers:
     _sh: logging.StreamHandler[IO[str]] = logging.StreamHandler(sys.stderr)
-    _sh.setFormatter(logging.Formatter("%(levelname)-8s %(message)s"))
+    _sh.setFormatter(
+        logging.Formatter(
+            fmt="[%(asctime)s] %(levelname)-8s %(message)s",
+            datefmt="%Y/%m/%d %H:%M:%S",
+        )
+    )
     _sh.setLevel(logging.WARNING)
     logger.addHandler(_sh)
     _console_handler = _sh
@@ -84,7 +89,9 @@ def configure_logger(
     verbose: bool | None = None,
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] | int | None = None,
     file: str | Path | None = None,
-    file_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] | int | None = None,
+    file_level: (
+        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] | int | None
+    ) = None,
     file_mode: Literal["a", "w"] = "a",
     file_only: bool = False,
 ) -> None:
@@ -123,7 +130,9 @@ def configure_logger(
             _file_handler.close()
             _file_handler = None
 
-        file_level_int = _validate_level(file_level) if file_level is not None else logging.DEBUG
+        file_level_int = (
+            _validate_level(file_level) if file_level is not None else logging.DEBUG
+        )
 
         filepath = Path(file)
         filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -142,7 +151,9 @@ def configure_logger(
         )
         logger.addHandler(_file_handler)
 
-        if _file_handler.stream is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        if (
+            _file_handler.stream is not None
+        ):  # pyright: ignore[reportUnnecessaryComparison]
             _file_handler.stream.reconfigure(line_buffering=True)
 
         if file_only and _console_handler is not None:

@@ -1,0 +1,21 @@
+warehouse_path: "s3://flood-warning/dev/warehouse"
+region: "us-east-1"
+namespace: "observations"
+table_name: "usgs"
+time_col: "timestamp"
+selected_fields:
+  - "provider"
+  - "site_id"
+  - "variable"
+  - "value"
+  - "timestamp"
+output_prefix: "s3://flood-warning/staging/temporary/observations"
+output_filename: "gages.parquet"
+lookback_hours: 168
+
+variable_mapping:
+  discharge: "FLOW"
+  gauge_height: "ELEVATION"
+  lake_elev_ngvd29_ft: "ELEVATION"
+  lake_elev_navd88_ft: "ELEVATION"
+  # storage: "STORAGE"
