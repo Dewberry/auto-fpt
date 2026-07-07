@@ -47,8 +47,10 @@ def load_data(s3_paths: list[str], schema_path: str, concat_dim: str = "valid_ti
         raise RuntimeError(f"Could not read any valid data from {s3_paths}")
     
     ds = xr.combine_nested(
-        datasets, 
-        concat_dim=concat_dim
+        datasets,
+        concat_dim=concat_dim,
+        coords='minimal',
+        compat='override',
     )
     # Remove duplicates along the concat_dim
     _, unique_indices = np.unique(ds[concat_dim].values, return_index=True)
