@@ -1,0 +1,21 @@
+FROM public.ecr.aws/lambda/python:3.13@sha256:31814562fc6d222dd84bf659ae2f0a1bb5ac17b7d217e9c734c7612e326e7559
+
+# Copy dependency file and install into the Lambda Python environment
+COPY usace/requirements.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+
+# Copy script, test, schemas, and shared module into the Lambda task root
+COPY usace/usace_latest.py ${LAMBDA_TASK_ROOT}/
+COPY usace/test_schema_validation.py ${LAMBDA_TASK_ROOT}/
+COPY schemas/point.json ${LAMBDA_TASK_ROOT}/schemas/point.json
+COPY shared/ ${LAMBDA_TASK_ROOT}/shared/
+
+# Configure Lambda writable directory for libraries that need to write to $HOME or cache
+ENV HOME="/tmp"
+
+# Run schema validation test during build - fails if data doesn't match schema
+WORKDIR ${LAMBDA_TASK_ROOT}
+RUN pytest test_schema_validation.py -v
+
+# Set the Lambda handler
+CMD ["usace_latest.handler"]
