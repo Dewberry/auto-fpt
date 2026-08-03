@@ -1,7 +1,7 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "version": "0.1.0",
-    "description": "Schema for a single point observation record (e.g., USGS NWIS streamgage). Each row in the output Parquet file conforms to this schema.",
+    "description": "Schema for a single point observation record (e.g., USGS NWIS streamgage) or HMS forecast. Each row in the output Parquet file conforms to this schema.",
     "type": "object",
     "properties": {
         "site_id": {
@@ -16,7 +16,7 @@
         },
         "value": {
             "description": "Observed numeric value in the variable's native units.",
-            "type": "number",
+            "type": ["number", "null"],
             "example": 142.0
         },
         "qualifier": {
@@ -34,13 +34,18 @@
             "description": "Data provider identifier, parsed from the upstream site ID prefix (e.g., 'USGS').",
             "type": "string",
             "example": "USGS"
+        },
+        "init_time": {
+            "description": "UTC timestamp of the HMS model run that produced this observation.",
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-05-15T12:00:00Z"
         }
     },
     "required": [
         "site_id",
         "variable",
         "value",
-        "qualifier",
         "timestamp",
         "provider"
     ]

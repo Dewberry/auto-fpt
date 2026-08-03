@@ -1,0 +1,63 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": "0.1.0",
+    "description": "Schema for a single HMS statistics record. Each row in the output Parquet file conforms to this schema.",
+    "type": "object",
+    "properties": {
+        "BasinName": {
+            "description": "Name or identifier of the basin element.",
+            "type": "string",
+            "example": "West_Fork_S010"
+        },
+        "BasinType": {
+            "description": "Type of basin element (e.g., Subbasin, Junction).",
+            "type": "string",
+            "example": "Subbasin"
+        },
+        "Area": {
+            "description": "Basin area.",
+            "type": ["string", "null"]
+        },
+        "AreaUnits": {
+            "description": "Units for the basin area (e.g., MI2).",
+            "type": ["string", "null"]
+        },
+        "StatisticType": {
+            "description": "Type of statistic reported.",
+            "type": "string",
+            "example": "Inflow Maximum"
+        },
+        "DisplayName": {
+            "description": "Human-readable name for the statistic.",
+            "type": "string",
+            "example": "Maximum Inflow"
+        },
+        "Value": {
+            "description": "Statistic value, may be numeric or a formatted string (e.g., a timestamp).",
+            "type": ["string", "null"]
+        },
+        "Units": {
+            "description": "Units for the statistic value.",
+            "type": ["string", "null"],
+            "example": "CFS"
+        },
+        "RunName": {
+            "description": "Name of the HMS run (e.g., Lookback, Forecast).",
+            "type": "string",
+            "example": "Lookback"
+        },
+        "ExecutionTime": {
+            "description": "Timestamp when the HMS run was executed.",
+            "type": "string",
+            "example": "7 July 2026, 19:14:55"
+        }
+    },
+    "required": [
+        "BasinName",
+        "BasinType",
+        "StatisticType",
+        "DisplayName",
+        "RunName",
+        "ExecutionTime"
+    ]
+}

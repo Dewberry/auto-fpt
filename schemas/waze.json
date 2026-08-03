@@ -1,0 +1,90 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": "0.1.0",
+    "description": "Schema for a single Waze alert record. Each row in the output Parquet file conforms to this schema.",
+    "type": "object",
+    "properties": {
+        "uuid": {
+            "description": "Unique system ID.",
+            "type": "string"
+        },
+        "type": {
+            "description": "Alert type.",
+            "type": "string"
+        },
+        "subtype": {
+            "description": "Alert sub type - depends on alert type parameter.",
+            "type": ["string", "null"]
+        },
+        "fromNodeId": {
+            "description": "Starting road node identifier.",
+            "type": ["integer", "null"]
+        },
+        "toNodeId": {
+            "description": "Ending road node identifier.",
+            "type": ["integer", "null"]
+        },
+        "reportByMunicipalityUser": {
+            "description": "Whether the report was made by a municipality user.",
+            "type": "string"
+        },
+        "reportRating": {
+            "description": "User rank between 1-6 (6 = high ranked user).",
+            "type": ["integer", "null"]
+        },
+        "confidence": {
+            "description": "Confidence in the alert based on reactions of other users (e.g. thumbs up). Range: -1 to 5.",
+            "type": ["integer", "null"]
+        },
+        "reliability": {
+            "description": "Confidence in the alert based on user input (e.g. thumbs up) and report rating. Range: 0-10.",
+            "type": ["integer", "null"]
+        },
+        "street": {
+            "description": "Street name as written in database, no canonical form. May be null.",
+            "type": ["string", "null"]
+        },
+        "roadType": {
+            "description": "Road type code (see Waze road types table).",
+            "type": ["number", "null"]
+        },
+        "reportDescription": {
+            "description": "Free-text description from the reporter.",
+            "type": ["string", "null"]
+        },
+        "nThumbsUp": {
+            "description": "Number of thumbs up by users.",
+            "type": ["integer", "null"]
+        },
+        "magvar": {
+            "description": "Alert direction (driver heading at report time). 0 = North, 89 = East, 179 = South, 269 = West. Range: 0-359.",
+            "type": ["integer", "null"]
+        },
+        "city": {
+            "description": "City and state name [City, State] if both available, [State] if not associated with a city.",
+            "type": ["string", "null"]
+        },
+        "timestamp": {
+            "description": "Timestamp of the reported alert (UTC).",
+            "type": "string",
+            "format": "date-time"
+        },
+        "geometry": {
+            "description": "WKB-encoded point geometry of the alert."
+        },
+        "time_retrieved": {
+            "description": "ISO 8601 timestamp of when the data was retrieved (UTC).",
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "uuid",
+        "subtype",
+        "timestamp",
+        "reportRating", 
+        "confidence",
+        "reliability",
+        "geometry"
+    ]
+}

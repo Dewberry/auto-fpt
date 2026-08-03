@@ -143,19 +143,33 @@ def delete_s3_files(fs: s3fs.S3FileSystem, file_paths: list[str]) -> None:
     logger.info(f"Successfully deleted {deleted_count}/{len(file_paths)} files.")
 
 
-def find_files(fs: s3fs.S3FileSystem, s3_path: str) -> list[str]:
+def find_files(fs: s3fs.S3FileSystem, s3_path: str, file_pattern: str = None, find_latest: bool = False) -> list[str]:
     """
     Utility method to find files in the given S3 path using s3fs.
 
     Args:
         fs (s3fs.S3FileSystem): The filesystem instance to use.
         s3_path (str): The S3 path to search for files.
+        file_pattern (str): Optional filename to match recursively (e.g. "forecast.parquet").
+            When provided, uses glob to find matching files in all subdirectories.
+        find_latest (bool): If True, return only the file
+            with the most recent path-derived timestamp, based on the extract_run_time function.
     """
     s3_path_cleaned = s3_path.replace("s3://", "")
-    files = fs.ls(s3_path_cleaned)
+    if file_pattern:
+        glob_pattern = f"{s3_path_cleaned}/**/{file_pattern}"
+        files = fs.glob(glob_pattern)
+    else:
+        files = fs.ls(s3_path_cleaned)
     if not files:
         raise FileNotFoundError(f"No files found at {s3_path}")
-    return [f"s3://{f}" for f in files]
+
+    s3_paths = [f"s3://{f}" for f in files]
+
+    if find_latest:
+        s3_paths = [max(s3_paths, key=extract_run_time)]
+
+    return s3_paths
 
 
 def read_s3_files(fs: s3fs.S3FileSystem, prefix: Union[str, list]) -> list[str]:
@@ -204,6 +218,20 @@ def upload_ds_to_s3(ds: xr.Dataset, s3_path: str, compression_lvl: int = 2) -> N
         boto3.client("s3").upload_file(tmp.name, s3_bucket, s3_key)
 
     logger.info(f"Uploaded to {s3_path}")
+
+
+def extract_run_time(s3_path: str) -> "pd.Timestamp":
+    """
+    Extract a model run time from an S3 path with date-partitioned structure.
+
+    Expects paths like: s3://bucket/prefix/{year}/{month}/{day}/{hour}/filename
+
+    Returns:
+        UTC-aware pd.Timestamp parsed from the path components.
+    """
+    parts = s3_path.rstrip('/').split('/')
+    year, month, day, hour = parts[-5], parts[-4], parts[-3], parts[-2]
+    return pd.Timestamp(f"{year}-{month}-{day}T{hour}:00:00", tz="UTC")
 
 
 def parse_tz_aware_time(time_str: str) -> datetime:
