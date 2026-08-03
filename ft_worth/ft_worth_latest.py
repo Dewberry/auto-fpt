@@ -1,4 +1,4 @@
-"""Reaper for fetching latest Fort Worth / NCTCOG gage data, transforming it, and saving to Parquet."""
+"""Reaper for fetching latest Fort Worth / NCTCOG gage data, transforming it, and saving to Parquet. Converts units to metric and maps variable names via STAC sensor lookup."""
 
 import os
 from ft_worth_reaper import FtWorthReaper

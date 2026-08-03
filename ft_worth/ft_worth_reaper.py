@@ -230,15 +230,3 @@ class FtWorthReaper:
         urls = self._build_reap_urls(site_ids, start_date, end_date, sensor_id)
         results = tiny_retriever.fetch(urls, "json") if len(urls) > 1 else [tiny_retriever.fetch(urls[0], "json")]
         return self._parse_responses(results, target_classes)
-
-
-# if __name__ == "__main__":
-#     reaper = FtWorthReaper(system_key = "59178e15-528a-4def-bfbb-28a2af2ae8c3")
-
-#     #sites = reaper.get_sites()
-#     df = reaper.reap(
-#         site_ids="43750",
-#         variables=["precip_cumulative", "stage"],
-#         start_date="2026-05-30 00:00:00",
-#         end_date="2026-06-30 12:00:00",
-#     )
