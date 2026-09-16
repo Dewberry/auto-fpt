@@ -4,8 +4,9 @@ FROM public.ecr.aws/lambda/python:3.13@sha256:31814562fc6d222dd84bf659ae2f0a1bb5
 COPY nwp/requirements.txt ${LAMBDA_TASK_ROOT}/
 RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
 
-# Copy script, test, schemas, and shared module into the Lambda task root
+# Copy script, models, test, schemas, and shared module into the Lambda task root
 COPY nwp/nwp_latest.py ${LAMBDA_TASK_ROOT}/
+COPY nwp/models.py ${LAMBDA_TASK_ROOT}/
 COPY nwp/test_schema_validation.py ${LAMBDA_TASK_ROOT}/
 COPY schemas/gridded-forecast.json ${LAMBDA_TASK_ROOT}/schemas/gridded-forecast.json
 COPY shared/ ${LAMBDA_TASK_ROOT}/shared/

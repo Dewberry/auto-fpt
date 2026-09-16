@@ -1,85 +1,101 @@
-"""Test schema validation for NWP data transformation using test dataset."""
+"""Test schema validation for NWP data transformation."""
 
 import numpy as np
 import xarray as xr
 import jsonschema
 import pytest
 
-from nwp_latest import transform
+from models import PRODUCTS, ForecastModel, AnalysisModel
 from shared.utils import load_schema
 
-SCHEMA_PATH = './schemas/gridded-forecast.json'
+SCHEMA_DIR = "./schemas"
 
 
-def get_test_data() -> xr.Dataset:
-    """Create minimal test xarray dataset based on real NWP structure."""
-    # Create minimal grid (2x2 instead of 170x193)
-    y = np.arange(2)
-    x = np.arange(2)
-    step = np.array([1, 2, 3, 4, 5, 6], dtype='timedelta64[h]')
-    
-    # Create dummy coordinates
-    latitude = np.array([[30.48, 30.48], [34.99, 34.99]], dtype='float64')
-    longitude = np.array([[-99.99, -93.82], [-99.99, -93.82]], dtype='float64')
-    
-    # Create time and valid_time
-    init_time = np.datetime64('2025-05-06T12:00:00')
-    valid_time = init_time + step
-    
-    # Create precipitation data
-    tp_data = np.random.uniform(0, 10, (6, 2, 2)).astype('float32')
-    
-    # Create xarray dataset matching NWP structure
-    ds = xr.Dataset(
-        data_vars={
-            'tp': (['step', 'y', 'x'], tp_data),
-        },
+# ---------------------------------------------------------------------------
+# Test data builders
+# ---------------------------------------------------------------------------
+
+def build_forecast_test_data(config: ForecastModel) -> xr.Dataset:
+    """Build synthetic forecast-shaped data from any ForecastModel config."""
+    raw_vars = list(config.variable_mapping.keys())
+    hours = config.get_forecast_hours()
+    step = np.array(list(hours), dtype="timedelta64[h]")
+    n_steps = len(step)
+    init_time = np.datetime64("2025-05-06T12:00:00")
+
+    data_vars = {
+        var: (["step", "y", "x"], np.random.uniform(0, 10, (n_steps, 2, 2)).astype("float32"))
+        for var in raw_vars
+    }
+
+    return xr.Dataset(
+        data_vars=data_vars,
         coords={
-            'step': step,
-            'valid_time': ('step', valid_time),
-            'latitude': (['y', 'x'], latitude),
-            'longitude': (['y', 'x'], longitude),
-            'time': init_time,
-            'surface': 0.0,
-            'gribfile_projection': None,
-        }
+            "step": step,
+            "valid_time": ("step", init_time + step),
+            "latitude": (["y", "x"], np.array([[30.48, 30.48], [34.99, 34.99]])),
+            "longitude": (["y", "x"], np.array([[-99.99, -93.82], [-99.99, -93.82]])),
+            "time": init_time,
+            "surface": 0.0,
+            "gribfile_projection": None,
+        },
     )
-    
-    # Add some attributes like real GRIB data
-    ds.attrs.update({
-        'GRIB_edition': 2,
-        'product': 'sfc',
-        'model': 'hrrr',
-    })
-    
-    return ds
 
 
-def test_nwp_schema_validation_with_test_data():
-    """Test that transformed test data validates against gridded-forecast schema."""
-    
-    # Load test data
-    test_data = get_test_data()
-    
-    # Transform the data
-    transformed = transform(test_data)
-    
-    # Convert dataset to dict representation (without data values)
+def build_analysis_test_data(config: AnalysisModel) -> xr.Dataset:
+    """Build synthetic analysis-shaped data from any AnalysisModel config."""
+    raw_vars = list(config.variable_mapping.keys())
+    valid_time = np.datetime64("2026-05-13T18:00:00")
+
+    data_vars = {
+        var: (["y", "x"], np.random.uniform(290, 310, (2, 2)).astype("float32"))
+        for var in raw_vars
+    }
+
+    return xr.Dataset(
+        data_vars=data_vars,
+        coords={
+            "latitude": (["y", "x"], np.array([[30.44, 30.44], [35.06, 35.06]])),
+            "longitude": (["y", "x"], np.array([[-99.99, -93.98], [-99.99, -93.98]])),
+            "time": np.datetime64("2026-05-13T18:00:00"),
+            "step": np.timedelta64(0, "ns"),
+            "heightAboveGround": 2.0,
+            "valid_time": valid_time,
+            "gribfile_projection": None,
+        },
+    )
+
+
+def build_test_data(config):
+    """Dispatch to the right builder based on model type."""
+    if isinstance(config, ForecastModel):
+        return build_forecast_test_data(config)
+    elif isinstance(config, AnalysisModel):
+        return build_analysis_test_data(config)
+    raise TypeError(f"Unknown model type: {type(config)}")
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("product_name", PRODUCTS.keys())
+def test_schema_validation(product_name):
+    """Test that each product's transform validates against its schema."""
+    config = PRODUCTS[product_name]
+    ds = build_test_data(config)
+    transformed = config.transform(ds)
+
     ds_dict = transformed.to_dict(data=False)
-    
-    # Load and validate against schema
-    schema = load_schema(SCHEMA_PATH)
-    
+    schema = load_schema(f"{SCHEMA_DIR}/{config.schema}")
+
     try:
         jsonschema.validate(ds_dict, schema)
     except jsonschema.ValidationError as e:
-        pytest.fail(f"Schema validation failed: {e.message}\nDataset: {ds_dict}")
-    
-    print(f"✓ Successfully validated NWP data against schema")
-    print(f"  Dimensions: {dict(transformed.dims)}")
-    print(f"  Data variables: {list(transformed.data_vars.keys())}")
-    assert len(transformed.data_vars) > 0, "Test data should have data variables after transformation"
+        pytest.fail(f"[{product_name}] Schema validation failed: {e.message}")
+
+    print(f"✓ {product_name} validated. Dims: {dict(transformed.dims)}, Vars: {list(transformed.data_vars.keys())}")
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v', '-s'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-s"])

@@ -1,127 +1,75 @@
 from cosecha.reaping.nwp import NWPReaper
 from cosecha import configure_logger
-from datetime import datetime, timedelta, timezone
-import logging
 import xarray as xr
-import numpy as np
+from datetime import datetime, timezone
+import logging
 
-from shared.constants import REGION_BOUNDS
 from shared.utils import save_netcdf_to_s3, parse_tz_aware_time, generate_default_path
+from models import PRODUCTS, NWPModel
 
 configure_logger(level="INFO")
 
-DEFAULT_LOOKBACK = timedelta(hours=1)
-DEFAULT_FORECAST_HOURS = 18
-DEFAULT_MODEL = "hrrr"
-DEFAULT_VARIABLE = "hourly_precip"
+DEFAULT_PRODUCT = "hrrr"
 
-NWP_VARIABLE_MAPPING = {
-    'tp': {'var_name': "qpf_1hr", 'attrs': {'standard_name': 'precipitation_amount', 'units': 'kg m-2', 'long_name': '1-hour Total Precipitation Forecast'}}}
 
-def transform(ds: xr.Dataset) -> xr.Dataset:
-    """Apply transformations to the dataset, such as renaming variables and dropping unnecessary ones."""
-
-    for var, attrs in NWP_VARIABLE_MAPPING.items():
-        if var in ds.variables:
-            ds[var].attrs = attrs['attrs']
-            ds[var].attrs.update({"grid_mapping": "crs"})
-
-    rename_mapping = {k: v['var_name'] for k, v in NWP_VARIABLE_MAPPING.items() if k in ds.variables}
-    if rename_mapping:
-        ds = ds.rename(rename_mapping)
-
-    ds = ds.rename({"time": "init_time", "gribfile_projection": "crs"})
-    crs_attrs = ds["crs"].attrs
-    ds = ds.assign_coords(crs=xr.DataArray(np.int32(0), attrs=crs_attrs))
-
-    ds = ds.expand_dims({'init_time': [ds.init_time.values]})
-    # Ensure valid_time includes the init_time dimension
-    if 'valid_time' in ds and 'init_time' not in ds['valid_time'].dims:
-        ds['valid_time'] = ds['valid_time'].expand_dims(init_time=ds.init_time)
-
-    ds["init_time"].attrs = {
-        "standard_name": "forecast_reference_time",
-        "long_name": "initial time of forecast",
-    }
-    ds = ds.drop_vars(['surface'], errors='ignore')
-
-    ds.attrs = {
-        "Conventions": "CF-1.9",
-        "title": "High Resolution Rapid Refresh (HRRR) Forecast",
-        }
-    
-    return ds
-
-def fetch_nwp_data(model: str, variable: str, init_time: datetime, forecast_hours: int) -> tuple[NWPReaper, xr.Dataset]:
+def fetch_nwp_data(config: NWPModel, init_time: datetime, forecast_hours: int | list[int] | None = None) -> tuple[NWPReaper, "xr.Dataset"]:
     """Fetch raw NWP data using Cosecha."""
-    
-    init_time_str = init_time.strftime("%Y-%m-%d %H:%M")
-    logging.info(f"Fetching NWP data for model {model}, variable {variable}, init time {init_time_str} UTC, forecast hours 1-{forecast_hours}...")
-    
-    reaper = NWPReaper(
-        init_time=init_time_str,
-        forecast_hours=range(1, forecast_hours + 1), 
-        model=model,
-        variable=variable,
-        transformations={
-            "spatial_subset": {
-                'lat_bounds': (REGION_BOUNDS[1], REGION_BOUNDS[3]),
-                'lon_bounds': (REGION_BOUNDS[0], REGION_BOUNDS[2])
-            }
-        }
-    )
 
+    init_time_str = init_time.strftime("%Y-%m-%d %H:%M")
+    logging.info(f"Fetching {config.name} data for init time {init_time_str} UTC...")
+
+    reaper = NWPReaper(**config.reaper_kwargs(init_time_str, forecast_hours))
     return reaper, reaper.reap()
 
-def main(init_time: datetime, model: str, variable: str, forecast_hours: int, output_path: str) -> None:
+
+def main(config: NWPModel, init_time: datetime, output_path: str, forecast_hours: int | list[int] | None = None) -> None:
     """Orchestrates the data extraction and saving for NWP."""
 
     if not output_path.lower().endswith('.nc'):
         raise ValueError("Output path must end with '.nc'")
-        
-    init_time_str = init_time.strftime("%Y-%m-%d %H:%M")
-    
-    logging.info(f"Fetching NWP data for model {model}, variable {variable}, init time {init_time_str} UTC...")
-    
-    reaper, data = fetch_nwp_data(model, variable, init_time, forecast_hours)
-    if len(data.step) != forecast_hours:
-        logging.warning(f"Expected {forecast_hours} forecast hours but got {len(data.step)}.")
 
-    reaper.data = transform(data)
+    init_time_str = init_time.strftime("%Y-%m-%d %H:%M")
+    logging.info(f"Fetching {config.name} data for init time {init_time_str} UTC...")
+
+    reaper, data = fetch_nwp_data(config, init_time, forecast_hours)
+    expected_hours = config.get_forecast_hours(forecast_hours)
+    if expected_hours is not None and len(data.step) != len(expected_hours):
+        logging.warning(f"Expected {len(expected_hours)} forecast steps but got {len(data.step)}.")
+
+    reaper.data = config.transform(data)
     save_netcdf_to_s3(reaper, output_path)
+
 
 def handler(event = None, context = None):
     """AWS Lambda handler. Extracts parameters from the event dict and runs the pipeline."""
     if event is None:
         event = {}
 
-    model = event.get("model", DEFAULT_MODEL)
-    variable = event.get("variable", DEFAULT_VARIABLE)
-    forecast_hours = event.get("forecast_hours", DEFAULT_FORECAST_HOURS)
+    product_name = event.get("product", DEFAULT_PRODUCT)
+    config = PRODUCTS[product_name]
+    forecast_hours = event.get("forecast_hours", None)
 
     dt_now = datetime.now(tz=timezone.utc)
     if event.get("init_time"):
         init_time = parse_tz_aware_time(event["init_time"])
     else:
-        init_time = dt_now.replace(minute=0, second=0, microsecond=0) - DEFAULT_LOOKBACK
+        init_time = dt_now.replace(minute=0, second=0, microsecond=0) - config.lookback
 
-    output_path = event.get("output_path", generate_default_path(model, dt_now, "nc"))
+    output_path = event.get("output_path", generate_default_path(config.name, dt_now, "nc"))
 
     main(
+        config=config,
         init_time=init_time,
-        model=model,
-        variable=variable,
+        output_path=output_path,
         forecast_hours=forecast_hours,
-        output_path=output_path
     )
 
     return {
         "statusCode": 200,
         "body": {
-            "message": "NWP data retrieval complete.",
+            "message": f"{config.name} data retrieval complete.",
             "output_path": output_path,
-            "model": model,
-            "variable": variable,
+            "model": config.name,
             "init_time": init_time.isoformat()
         }
     }
