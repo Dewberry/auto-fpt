@@ -143,7 +143,7 @@ def delete_s3_files(fs: s3fs.S3FileSystem, file_paths: list[str]) -> None:
     logger.info(f"Successfully deleted {deleted_count}/{len(file_paths)} files.")
 
 
-def find_files(fs: s3fs.S3FileSystem, s3_path: str, file_pattern: str = None, find_latest: bool = False) -> list[str]:
+def find_files(fs: s3fs.S3FileSystem, s3_path: str, file_pattern: str = None, lookback_hours: int = None) -> list[str]:
     """
     Utility method to find files in the given S3 path using s3fs.
 
@@ -152,8 +152,9 @@ def find_files(fs: s3fs.S3FileSystem, s3_path: str, file_pattern: str = None, fi
         s3_path (str): The S3 path to search for files.
         file_pattern (str): Optional filename to match recursively (e.g. "forecast.parquet").
             When provided, uses glob to find matching files in all subdirectories.
-        find_latest (bool): If True, return only the file
-            with the most recent path-derived timestamp, based on the extract_run_time function.
+        lookback_hours (int): When set, only return files whose path-derived timestamp
+            falls within the current hour minus this many hours. 0 means current hour only,
+            2 means current hour plus the 2 previous hours.
     """
     s3_path_cleaned = s3_path.replace("s3://", "")
     if file_pattern:
@@ -166,8 +167,13 @@ def find_files(fs: s3fs.S3FileSystem, s3_path: str, file_pattern: str = None, fi
 
     s3_paths = [f"s3://{f}" for f in files]
 
-    if find_latest:
-        s3_paths = [max(s3_paths, key=extract_run_time)]
+    if lookback_hours is not None:
+        cutoff = pd.Timestamp.now(tz="UTC").floor("h") - pd.Timedelta(hours=lookback_hours)
+        s3_paths = [p for p in s3_paths if extract_run_time(p) >= cutoff]
+        if not s3_paths:
+            raise FileNotFoundError(
+                f"No files from the last {lookback_hours}h found at {s3_path}"
+            )
 
     return s3_paths
 

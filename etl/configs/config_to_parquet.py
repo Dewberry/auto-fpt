@@ -7,8 +7,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import yaml
 
-INPUT_PATH = Path("/home/ubuntu/repos/auto-fpt/etl/configs/hms_forcing_config.yaml")
-OUTPUT_PATH = Path("/home/ubuntu/repos/auto-fpt/etl/configs/hms-forcing-config.parquet")
+INPUT_PATH = Path("/home/ubuntu/repos/auto-fpt/etl/configs/consolidate_config.yaml")
+OUTPUT_PATH = Path("/home/ubuntu/repos/auto-fpt/etl/configs/consolidate_config.parquet")
 
 
 def main() -> None:

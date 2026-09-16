@@ -138,3 +138,25 @@ sources:
     append_param: "timestamp"
     namespace: "observations"
     table: "waze"
+
+  nbm:
+    source_type: "netcdf"
+    dest_type: "icechunk"
+    schema: "gridded-forecast.json"
+    input_prefix: "s3://flood-warning/staging/temporary/nbm"
+    bucket: "flood-warning"
+    region: "us-east-1"
+    prefix: "dev/icechunk/nbm"
+    append_param: "init_time"
+
+  wpc-ero:
+    source_type: "parquet"
+    dest_type: "iceberg"
+    schema: "wpc-ero.json"
+    input_prefix: "s3://flood-warning/staging/temporary/wpc-ero"
+    bucket: "flood-warning"
+    prefix: "dev/warehouse"
+    region: "us-east-1"
+    append_param: "issue_time"
+    namespace: "public_products"
+    table: "wpc_ero"

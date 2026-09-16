@@ -10,7 +10,7 @@ from etl.gridded.icechunk_utils import IcechunkManager
 configure_logger(level="INFO")
 
 DEFAULT_CONFIG_PATH = 's3://flood-warning/staging/payloads/hms-forcing-config.pq'
-DEFAULT_CONSOLIDATE_CONFIG_PATH = 's3://flood-warning/dev/config.pq'
+DEFAULT_CONSOLIDATE_CONFIG_PATH = 's3://flood-warning/dev/consolidate_config.pq'
 DEFAULT_OUTPUT_PREFIX = 's3://flood-warning/staging/temporary/forcing'
 
 

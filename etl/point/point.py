@@ -96,7 +96,7 @@ def process_point_data_source(
     file_pattern: str = None,
     run_time_col: str = None,
     delete_files: bool = True,
-    find_latest: bool = False
+    lookback_hours: int = None
 ):
     """Process a point data source by reading files from S3, validating and concatenating them, and writing to an Iceberg table.
     
@@ -113,10 +113,11 @@ def process_point_data_source(
             When provided, uses glob to find matching files in all subdirectories.
         run_time_col (str): Optional column name for a timestamp derived from the file path.
         delete_files (bool): Whether to delete processed files from S3 after successful processing. Defaults to True.
-        find_latest (bool): If True, only the latest file matching the file_pattern will be processed. Defaults to False.
+        lookback_hours (int): When set, only process files from the current hour minus this many hours. 
+            0 = current hour only. None = no filtering.
     """
 
-    file_paths = find_files(fs, input_prefix, file_pattern=file_pattern, find_latest=find_latest)
+    file_paths = find_files(fs, input_prefix, file_pattern=file_pattern, lookback_hours=lookback_hours)
     if not file_paths:
         raise FileNotFoundError(f"No files found at {input_prefix}")
     logger.info(f"Found {len(file_paths)} files to process at prefix: {input_prefix}")

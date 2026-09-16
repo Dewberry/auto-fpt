@@ -66,11 +66,11 @@ def process_sources(source: Union[str, list[str]], config_path: str):
                 if source_name in HMS_SOURCES:
                     run_time_col = append_param
                     delete_files = False
-                    find_latest = True
+                    lookback_hours = 0
                 else:
                     run_time_col = None
                     delete_files = True
-                    find_latest = False
+                    lookback_hours = None
 
                 process_point_data_source(
                     fs=fs,
@@ -84,7 +84,7 @@ def process_sources(source: Union[str, list[str]], config_path: str):
                     file_pattern=file_pattern,
                     run_time_col=run_time_col,
                     delete_files=delete_files,
-                    find_latest=find_latest
+                    lookback_hours=lookback_hours
                 )
             else:
                 raise ValueError(f"Unsupported dest_type '{dest_type}' for source '{source_name}'")
