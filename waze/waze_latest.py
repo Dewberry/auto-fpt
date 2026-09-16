@@ -11,11 +11,7 @@ from waze_reaper import WazeReaper
 from shared.utils import generate_default_path
 
 load_dotenv()
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-if logger.handlers:
-    for handler in logger.handlers:
-        handler.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO, force=True)
 
 PARTNER_ID = os.environ.get("WAZE_PARTNER_ID")
 API_TOKEN = os.environ.get("WAZE_API_TOKEN")
