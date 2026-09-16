@@ -1,0 +1,17 @@
+FROM public.ecr.aws/lambda/python:3.13@sha256:31814562fc6d222dd84bf659ae2f0a1bb5ac17b7d217e9c734c7612e326e7559
+
+COPY nws_alerts/requirements.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+
+COPY nws_alerts/nws_alerts_latest.py ${LAMBDA_TASK_ROOT}/
+COPY nws_alerts/nws_alerts_reaper.py ${LAMBDA_TASK_ROOT}/
+COPY nws_alerts/test_schema_validation.py ${LAMBDA_TASK_ROOT}/
+COPY schemas/nws-flood-alert.json ${LAMBDA_TASK_ROOT}/schemas/nws-flood-alert.json
+COPY shared/ ${LAMBDA_TASK_ROOT}/shared/
+
+ENV HOME="/tmp"
+
+WORKDIR ${LAMBDA_TASK_ROOT}
+RUN pytest test_schema_validation.py -v
+
+CMD ["nws_alerts_latest.handler"]
