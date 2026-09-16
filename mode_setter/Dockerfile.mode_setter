@@ -1,0 +1,17 @@
+FROM public.ecr.aws/lambda/python:3.13@sha256:31814562fc6d222dd84bf659ae2f0a1bb5ac17b7d217e9c734c7612e326e7559
+
+# Copy dependency file and install into the Lambda Python environment
+COPY mode_setter/requirements.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+
+# Copy status checker scripts and utilities
+COPY mode_setter/mode_setter.py ${LAMBDA_TASK_ROOT}/
+COPY mode_setter/sources.py ${LAMBDA_TASK_ROOT}/
+COPY mode_setter/utils/ ${LAMBDA_TASK_ROOT}/utils/
+
+# Configure Lambda writable directory for libraries that need to write to $HOME or cache
+ENV HOME="/tmp"
+ENV PYTHONPATH="${LAMBDA_TASK_ROOT}"
+
+# Set the Lambda handler
+CMD ["mode_setter.handler"]
