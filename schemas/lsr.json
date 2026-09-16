@@ -1,0 +1,45 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": "0.1.0",
+    "description": "Schema for a single NWS Local Storm Report (LSR) record. Each row in the output Parquet file conforms to this schema.",
+    "type": "object",
+    "properties": {
+        "event_type": {
+            "description": "Storm report event type (e.g. 'FLOOD', 'FLASH FLOOD').",
+            "type": "string"
+        },
+        "magnitude": {
+            "description": "Reported magnitude of the event in the associated unit, if applicable.",
+            "type": ["number", "null"]
+        },
+        "unit": {
+            "description": "Unit of the reported magnitude (e.g. 'INCH', 'MPH').",
+            "type": ["string", "null"]
+        },
+        "source": {
+            "description": "Source of the report (e.g. 'TRAINED SPOTTER', 'PUBLIC').",
+            "type": ["string", "null"]
+        },
+        "remark": {
+            "description": "Free-text remark accompanying the report.",
+            "type": ["string", "null"]
+        },
+        "product_id": {
+            "description": "Identifier of the NWS text product the report originated from.",
+            "type": ["string", "null"]
+        },
+        "timestamp": {
+            "description": "UTC time the report was valid, in ISO 8601 format.",
+            "type": "string",
+            "format": "date-time"
+        },
+        "geometry": {
+            "description": "WKB-encoded point geometry of the report location."
+        }
+    },
+    "required": [
+        "event_type",
+        "timestamp",
+        "geometry"
+    ]
+}

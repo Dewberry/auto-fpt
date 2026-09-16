@@ -118,6 +118,28 @@
             "attrs": {"units": "degC", "standard_name": "air_temperature"},
             "data": [[[[21.95, 21.65], [22.85, 22.35]]]]
           }
+        },
+        "pop_6hr": {
+          "description": "6-hour probability of precipitation exceeding 0.254mm (0.01 in).",
+          "type": "object",
+          "required": ["dims", "attrs"],
+          "properties": {
+            "dims": {},
+            "attrs": {
+              "type": "object",
+              "required": ["units", "standard_name"],
+              "properties": {
+                "units": { "type": "string", "const": "%" },
+                "standard_name": { "type": "string", "const": "probability_of_precipitation_amount_above_threshold" }
+              }
+            },
+            "data": { "type": "array" }
+          },
+          "example": {
+            "dims": ["init_time", "step", "y", "x"],
+            "attrs": {"units": "%", "standard_name": "probability_of_precipitation_amount_above_threshold"},
+            "data": [[[[85.0, 42.0], [67.0, 12.0]]]]
+          }
         }
       }
     },

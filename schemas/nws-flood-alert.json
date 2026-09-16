@@ -1,0 +1,91 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": "0.1.0",
+    "description": "Schema for a single NWS flood alert record. Each row in the output GeoParquet file conforms to this schema.",
+    "type": "object",
+    "properties": {
+        "area_desc": {
+            "description": "Textual description of the affected area.",
+            "type": "string"
+        },
+        "event": {
+            "description": "Alert event type (e.g. 'Flood Warning', 'Flash Flood Watch').",
+            "type": "string"
+        },
+        "headline": {
+            "description": "Short headline summarizing the alert.",
+            "type": ["string", "null"]
+        },
+        "description": {
+            "description": "Full text description of the alert.",
+            "type": "string"
+        },
+        "severity": {
+            "description": "Severity level.",
+            "type": "string"
+        },
+        "certainty": {
+            "description": "Certainty of the event.",
+            "type": "string"
+        },
+        "urgency": {
+            "description": "Urgency of the alert.",
+            "type": "string"
+        },
+        "sender_name": {
+            "description": "Name of the issuing NWS office.",
+            "type": "string"
+        },
+        "sent": {
+            "description": "ISO 8601 timestamp when the alert was sent.",
+            "type": "string",
+            "format": "date-time"
+        },
+        "effective": {
+            "description": "ISO 8601 timestamp when the alert becomes effective.",
+            "type": "string",
+            "format": "date-time"
+        },
+        "onset": {
+            "description": "ISO 8601 timestamp of expected event onset.",
+            "type": ["string", "null"],
+            "format": "date-time"
+        },
+        "expires": {
+            "description": "ISO 8601 timestamp when the alert expires.",
+            "type": "string",
+            "format": "date-time"
+        },
+        "ends": {
+            "description": "ISO 8601 timestamp of expected event end.",
+            "type": ["string", "null"],
+            "format": "date-time"
+        },
+        "status": {
+            "description": "Alert status.",
+            "type": "string"
+        },
+        "message_type": {
+            "description": "Message type.",
+            "type": "string"
+        },
+        "geometry": {
+            "description": "WKB-encoded polygon geometry of the alert area."
+        }
+    },
+    "required": [
+        "area_desc",
+        "event",
+        "description",
+        "severity",
+        "certainty",
+        "urgency",
+        "sender_name",
+        "sent",
+        "effective",
+        "expires",
+        "status",
+        "message_type",
+        "geometry"
+    ]
+}
